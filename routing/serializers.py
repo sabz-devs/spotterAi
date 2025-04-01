@@ -1,7 +1,7 @@
 # In routing/serializer.py
 from rest_framework import serializers
 from .models import Route
-from tracking.serializers import TripSerializer
+
 
 class RouteSerializer(serializers.ModelSerializer):
     trip_id = serializers.IntegerField(source='trip.id', read_only=True)

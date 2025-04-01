@@ -155,3 +155,31 @@ def get_route_details(pickup_coords, dropoff_coords, current_cycle_used):
         "stops": stops,
         
     }
+
+def create_route_for_trip(trip):
+    """
+    Create a route for the given trip using the trip's coordinates and cycle information
+    
+    Args:
+        trip: A Trip model instance
+        
+    Returns:
+        The created Route instance or None if route generation failed
+    """
+    route_data = get_route_details(
+        trip.pickup_coordinates,
+        trip.dropoff_coordinates,
+        trip.current_cycle_used
+    )
+    
+    if route_data:
+        from .models import Route
+        route = Route.objects.create(
+            trip=trip,
+            distance=route_data["distance"],
+            duration=route_data["duration"],
+            route_polyline=route_data["route_polyline"],
+            stops=route_data["stops"]
+        )
+        return route
+    return None

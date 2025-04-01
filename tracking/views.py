@@ -5,15 +5,33 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from .models import Trip, Stop, GPSLog, ELDLog
 from .serializers import TripSerializer, StopSerializer, GPSLogSerializer, ELDLogSerializer
+from routing.services import create_route_for_trip 
 
 class TripCreateView(generics.CreateAPIView):
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
         # Save trip with the currently authenticated driver
-        serializer.save(driver=self.request.user)
+        trip = serializer.save(driver=request.user)
+        
+        # Generate route for the trip
+        route = create_route_for_trip(trip)
+        
+        # Include route in response if it was created
+        response_data = serializer.data
+        
+        if route:
+            from routing.serializers import RouteSerializer
+            route_data = RouteSerializer(route).data
+            response_data['route'] = route_data
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
 class TripListView(generics.ListAPIView):
     serializer_class = TripSerializer
@@ -22,7 +40,7 @@ class TripListView(generics.ListAPIView):
     def get_queryset(self):
         # Filter trips by status if provided in query params
         status_filter = self.request.query_params.get('status', None)
-        queryset = Trip.objects.filter(driver=self.request.user)
+        queryset = Trip.objects.filter(driver=self.request.user).select_related('route')
         
         if status_filter:
             queryset = queryset.filter(status=status_filter)
